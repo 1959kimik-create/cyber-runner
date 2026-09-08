@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cyber Runner · 사이버 러너</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <section id="select-screen" class="screen">
+      <p class="eyebrow">CYBER WORLD / CODING LANE</p>
+      <h1>사이버 러너</h1>
+      <p class="subtitle">바이러스를 피해 달려 데이터 조각을 모으세요</p>
+
+      <div class="card-row">
+        <button type="button" class="char-card" data-character="bbia">
+          <div class="sprite-frame">
+            <img class="char-photo" src="assets/sprites/bbia/front/00.png" alt="삐아" />
+          </div>
+          <strong>삐아</strong>
+          <span>AI 병아리 · 가벼운 발걸음</span>
+        </button>
+        <button type="button" class="char-card" data-character="oreu">
+          <div class="sprite-frame">
+            <img class="char-photo" src="assets/sprites/oreu/front/00.png" alt="오르" />
+          </div>
+          <strong>오르</strong>
+          <span>AI 곰 · 든든한 러너</span>
+        </button>
+      </div>
+
+      <p class="hint" id="load-hint">캐릭터 불러오는 중...</p>
+      <p class="hint hidden" id="play-hint">캐릭터를 선택하면 바로 달립니다 · ← → 레인 이동 · ↑ / Space 점프 · 🔊 음소거</p>
+    </section>
+
+    <button type="button" id="mute-btn" class="mute-btn" aria-label="음소거" aria-pressed="false">🔊</button>
+
+    <section id="play-screen" class="screen hidden">
+      <header class="hud">
+        <div class="hud-lives" aria-label="목숨">
+          <span class="hud-label">LIFE</span>
+          <div id="hearts" class="hearts"></div>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-label">SCORE</span>
+          <strong id="score">0</strong>
+        </div>
+        <div class="hud-stat">
+          <span class="hud-label">DISTANCE</span>
+          <strong id="distance">0m</strong>
+        </div>
+      </header>
+      <canvas id="game" width="480" height="720"></canvas>
+      <p class="mobile-hint">화면을 좌우로 탭해 레인을 바꾸고, 위쪽을 탭하면 점프합니다</p>
+    </section>
+
+    <section id="over-screen" class="screen hidden">
+      <p class="eyebrow">SYSTEM HALTED</p>
+      <h2>게임 오버</h2>
+      <p class="final-line">최종 점수 <strong id="final-score">0</strong></p>
+      <p class="final-line muted">이동 거리 <span id="final-distance">0m</span></p>
+      <div class="btn-row">
+        <button type="button" id="retry-btn" class="btn primary">다시하기</button>
+        <button type="button" id="home-btn" class="btn">캐릭터 선택</button>
+      </div>
+    </section>
+  </div>
+  <script src="js/audio.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

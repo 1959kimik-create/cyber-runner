@@ -1,0 +1,11 @@
+Audio assets: Kenney.nl (CC0 1.0)
+https://kenney.nl/assets/interface-sounds
+https://kenney.nl/assets/music-jingles
+https://kenney.nl/assets/sci-fi-sounds
+
+File mapping:
+- bgm_lobby.ogg    : 8-Bit jingle NES04 (menu)
+- bgm_game.ogg     : spaceEngineSmall_002 (runner loop)
+- sfx_recover.ogg  : confirmation_003 (vaccine pickup)
+- sfx_hit.ogg      : impactMetal_003 (virus collision)
+- sfx_data.ogg     : laserRetro_002 (data chip pickup)

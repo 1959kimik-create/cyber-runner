@@ -1,0 +1,28 @@
+{
+  "sourceSheets": {
+    "front": { "file": "정면.png", "grid": "2x1", "mapping": "col0=oreu, col1=bbia" },
+    "run": { "file": "달리기.png", "grid": "4x2", "mapping": "row0=oreu, row1=bbia" },
+    "recover": { "file": "회복.png", "grid": "4x1", "mapping": "col0-2=oreu, col3=bbia" },
+    "hit": { "file": "장애물.png", "grid": "top2+bottom4", "mapping": "oreu/bbia alternating" }
+  },
+  "characters": {
+    "bbia": {
+      "name": "삐아",
+      "animations": {
+        "front": ["front/00.png"],
+        "run": ["run/00.png", "run/01.png", "run/02.png", "run/03.png"],
+        "recover": ["recover/00.png"],
+        "hit": ["hit/00.png", "hit/01.png", "hit/02.png"]
+      }
+    },
+    "oreu": {
+      "name": "오르",
+      "animations": {
+        "front": ["front/00.png"],
+        "run": ["run/00.png", "run/01.png", "run/02.png", "run/03.png"],
+        "recover": ["recover/00.png", "recover/01.png", "recover/02.png"],
+        "hit": ["hit/00.png", "hit/01.png", "hit/02.png"]
+      }
+    }
+  }
+}
