@@ -58,9 +58,17 @@
     hit: { fps: 8, loop: true },
   };
 
+  const STORAGE_KEY = "cyber-runner-settings";
+  const DEFAULT_KEYS = {
+    left: ["ArrowLeft", "KeyA"],
+    right: ["ArrowRight", "KeyD"],
+    jump: ["ArrowUp", "Space"],
+  };
+
   const selectScreen = document.getElementById("select-screen");
   const playScreen = document.getElementById("play-screen");
   const overScreen = document.getElementById("over-screen");
+  const settingsScreen = document.getElementById("settings-screen");
   const heartsEl = document.getElementById("hearts");
   const scoreEl = document.getElementById("score");
   const distanceEl = document.getElementById("distance");
@@ -69,6 +77,12 @@
   const canvas = document.getElementById("game");
   const ctx = canvas.getContext("2d");
   const charCards = document.querySelectorAll(".char-card");
+  const settingsMainTabs = document.getElementById("settings-main-tabs");
+  const settingsResumeBtn = document.getElementById("settings-resume-btn");
+  const bgmEnabledEl = document.getElementById("bgm-enabled");
+  const sfxEnabledEl = document.getElementById("sfx-enabled");
+  const bgmVolumeEl = document.getElementById("bgm-volume");
+  const sfxVolumeEl = document.getElementById("sfx-volume");
 
   let manifest = null;
   const sprites = {};
@@ -94,17 +108,120 @@
     anim: "run",
     animTime: 0,
     recoverTimer: 0,
+    paused: false,
+    settingsFrom: "select",
   };
+
+  let keybinds = {
+    left: [...DEFAULT_KEYS.left],
+    right: [...DEFAULT_KEYS.right],
+    jump: [...DEFAULT_KEYS.jump],
+  };
+  let listeningBind = null;
+  let sfxPreviewTimer = 0;
 
   function sfx(name) {
     window.gameAudio?.playSfx(name);
+  }
+
+  function loadStore() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+    } catch {
+      return {};
+    }
+  }
+
+  function saveKeybinds() {
+    const store = loadStore();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...store, keys: keybinds }));
+  }
+
+  function validCodes(list) {
+    return Array.isArray(list) && list.length === 2 && list.every((code) => typeof code === "string");
+  }
+
+  function loadKeybinds() {
+    const store = loadStore();
+    const keys = store.keys || {};
+    keybinds = {
+      left: validCodes(keys.left) ? [...keys.left] : [...DEFAULT_KEYS.left],
+      right: validCodes(keys.right) ? [...keys.right] : [...DEFAULT_KEYS.right],
+      jump: validCodes(keys.jump) ? [...keys.jump] : [...DEFAULT_KEYS.jump],
+    };
+  }
+
+  function codeLabel(code) {
+    const labels = {
+      ArrowLeft: "←",
+      ArrowRight: "→",
+      ArrowUp: "↑",
+      ArrowDown: "↓",
+      Space: "Space",
+      ShiftLeft: "LShift",
+      ShiftRight: "RShift",
+      ControlLeft: "LCtrl",
+      ControlRight: "RCtrl",
+      AltLeft: "LAlt",
+      AltRight: "RAlt",
+    };
+    if (labels[code]) return labels[code];
+    if (code.startsWith("Key")) return code.slice(3);
+    if (code.startsWith("Digit")) return code.slice(5);
+    return code.replace("Key", "");
+  }
+
+  function renderKeyChips() {
+    document.querySelectorAll(".key-chip").forEach((btn) => {
+      const action = btn.dataset.action;
+      const slot = Number(btn.dataset.slot);
+      const listening = listeningBind && listeningBind.action === action && listeningBind.slot === slot;
+      btn.classList.toggle("listening", Boolean(listening));
+      btn.textContent = listening ? "입력..." : codeLabel(keybinds[action][slot]);
+    });
+  }
+
+  function syncAudioControls() {
+    const audio = window.gameAudio?.getAudioSettings?.();
+    if (!audio) return;
+    bgmEnabledEl.checked = audio.bgmEnabled;
+    sfxEnabledEl.checked = audio.sfxEnabled;
+    bgmVolumeEl.value = String(Math.round(audio.bgmVolume * 100));
+    sfxVolumeEl.value = String(Math.round(audio.sfxVolume * 100));
+  }
+
+  function openSettings(from) {
+    state.settingsFrom = from;
+    const fromGame = from === "play";
+    settingsMainTabs.classList.toggle("hidden", fromGame);
+    settingsResumeBtn.classList.toggle("hidden", !fromGame);
+    listeningBind = null;
+    syncAudioControls();
+    renderKeyChips();
+    if (fromGame) {
+      state.paused = true;
+      state.running = false;
+    }
+    show("settings");
+  }
+
+  function resumeFromSettings() {
+    listeningBind = null;
+    renderKeyChips();
+    state.paused = false;
+    state.running = true;
+    state.lastTime = 0;
+    show("play");
+    requestAnimationFrame(loop);
   }
 
   function show(screen) {
     selectScreen.classList.toggle("hidden", screen !== "select");
     playScreen.classList.toggle("hidden", screen !== "play");
     overScreen.classList.toggle("hidden", screen !== "over");
+    settingsScreen.classList.toggle("hidden", screen !== "settings");
     state.screen = screen;
+    window.scrollTo(0, 0);
     if (screen === "select") window.gameAudio?.playBgm("lobby");
     if (screen === "play") window.gameAudio?.playBgm("game");
     if (screen === "over") window.gameAudio?.stopBgm();
@@ -658,24 +775,111 @@
 
   document.getElementById("home-btn").addEventListener("click", () => {
     state.running = false;
+    state.paused = false;
     show("select");
     window.gameAudio?.playBgm("lobby");
   });
 
-  const muteBtn = document.getElementById("mute-btn");
-  if (muteBtn) {
-    muteBtn.addEventListener("click", () => {
-      const muted = window.gameAudio?.toggleMute();
-      muteBtn.textContent = muted ? "🔇" : "🔊";
-      muteBtn.setAttribute("aria-pressed", muted ? "true" : "false");
+  document.querySelectorAll("[data-main-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.mainTab;
+      if (tab === "settings") openSettings("select");
+      else {
+        listeningBind = null;
+        show("select");
+      }
+    });
+  });
+
+  document.getElementById("settings-btn").addEventListener("click", () => {
+    openSettings("play");
+  });
+
+  settingsResumeBtn.addEventListener("click", () => {
+    resumeFromSettings();
+  });
+
+  function applyAudioFromUi() {
+    window.gameAudio?.setAudioSettings({
+      bgmEnabled: bgmEnabledEl.checked,
+      sfxEnabled: sfxEnabledEl.checked,
+      bgmVolume: Number(bgmVolumeEl.value) / 100,
+      sfxVolume: Number(sfxVolumeEl.value) / 100,
     });
   }
 
+  [bgmEnabledEl, bgmVolumeEl].forEach((el) => {
+    el.addEventListener("input", applyAudioFromUi);
+    el.addEventListener("change", applyAudioFromUi);
+  });
+
+  sfxEnabledEl.addEventListener("change", () => {
+    applyAudioFromUi();
+    if (sfxEnabledEl.checked) sfx("data");
+  });
+
+  sfxVolumeEl.addEventListener("input", () => {
+    applyAudioFromUi();
+    window.clearTimeout(sfxPreviewTimer);
+    sfxPreviewTimer = window.setTimeout(() => sfx("data"), 120);
+  });
+
+  function bindAction(action, slot, code) {
+    Object.entries(keybinds).forEach(([otherAction, codes]) => {
+      const index = codes.indexOf(code);
+      if (index !== -1 && (otherAction !== action || index !== slot)) {
+        keybinds[otherAction][index] = keybinds[action][slot];
+      }
+    });
+    keybinds[action][slot] = code;
+    saveKeybinds();
+    listeningBind = null;
+    renderKeyChips();
+  }
+
+  document.querySelectorAll(".key-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      listeningBind = { action: btn.dataset.action, slot: Number(btn.dataset.slot) };
+      renderKeyChips();
+    });
+  });
+
+  document.getElementById("reset-keys-btn").addEventListener("click", () => {
+    keybinds = {
+      left: [...DEFAULT_KEYS.left],
+      right: [...DEFAULT_KEYS.right],
+      jump: [...DEFAULT_KEYS.jump],
+    };
+    listeningBind = null;
+    saveKeybinds();
+    renderKeyChips();
+  });
+
+  function matchesBind(action, code) {
+    return keybinds[action].includes(code);
+  }
+
   window.addEventListener("keydown", (event) => {
+    if (listeningBind) {
+      event.preventDefault();
+      if (event.code === "Escape") {
+        listeningBind = null;
+        renderKeyChips();
+        return;
+      }
+      bindAction(listeningBind.action, listeningBind.slot, event.code);
+      return;
+    }
+
+    if (state.screen === "settings" && state.settingsFrom === "play" && event.code === "Escape") {
+      resumeFromSettings();
+      return;
+    }
+
     if (state.screen !== "play") return;
-    if (event.key === "ArrowLeft" || event.key === "a") setLane(state.targetLane - 1);
-    if (event.key === "ArrowRight" || event.key === "d") setLane(state.targetLane + 1);
-    if (event.key === "ArrowUp" || event.key === " ") {
+    if (matchesBind("left", event.code)) setLane(state.targetLane - 1);
+    if (matchesBind("right", event.code)) setLane(state.targetLane + 1);
+    if (matchesBind("jump", event.code)) {
       event.preventDefault();
       jump();
     }
@@ -690,6 +894,10 @@
     else if (x < rect.width / 2) setLane(state.targetLane - 1);
     else setLane(state.targetLane + 1);
   });
+
+  loadKeybinds();
+  renderKeyChips();
+  syncAudioControls();
 
   setCardsEnabled(false);
   Promise.all([loadAllSprites(), loadItemSprites(), processSelectPhotos()]).finally(() =>
