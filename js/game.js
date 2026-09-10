@@ -1,7 +1,34 @@
 (() => {
-  const MAX_LIVES = 5;
+  const CHAR_STATS = {
+    bbia: {
+      name: "삐아",
+      maxLives: 3,
+      hitLane: 0.32,
+      zMin: 0.88,
+      zMax: 1.0,
+    },
+    oreu: {
+      name: "오르",
+      maxLives: 5,
+      hitLane: 0.58,
+      zMin: 0.84,
+      zMax: 1.04,
+    },
+  };
+  const COLLECT_LANE = 0.48;
   const LANES = [-1, 0, 1];
   const SPRITE_ROOT = "assets/sprites";
+  const ITEM_ROOT = "assets/items";
+  const ITEM_SOURCES = {
+    virus: `${ITEM_ROOT}/virus.png`,
+    vaccine: `${ITEM_ROOT}/vaccine.png`,
+    chip: `${ITEM_ROOT}/chip.png`,
+  };
+  const ITEM_TINT = {
+    virus: "#7cff6b",
+    vaccine: "#5cf0ff",
+    chip: "#ffe46a",
+  };
   const MANIFEST_FALLBACK = {
     characters: {
       bbia: {
@@ -45,6 +72,7 @@
 
   let manifest = null;
   const sprites = {};
+  const itemSprites = {};
   let spritesReady = false;
 
   const state = {
@@ -54,7 +82,7 @@
     lane: 0,
     targetLane: 0,
     jumpT: 0,
-    lives: MAX_LIVES,
+    lives: CHAR_STATS.bbia.maxLives,
     score: 0,
     distance: 0,
     speed: 0.22,
@@ -205,6 +233,18 @@
     );
   }
 
+  async function loadItemSprites() {
+    await Promise.allSettled(
+      Object.entries(ITEM_SOURCES).map(async ([type, src]) => {
+        try {
+          itemSprites[type] = await loadImage(src);
+        } catch {
+          /* fallback 도형 사용 */
+        }
+      })
+    );
+  }
+
   async function loadAllSprites() {
     try {
       const res = await fetch(`${SPRITE_ROOT}/manifest.json`);
@@ -244,9 +284,18 @@
     return Math.max(0.6, base);
   }
 
+  function charStats(character) {
+    return CHAR_STATS[character] || CHAR_STATS.bbia;
+  }
+
+  function maxLives(character) {
+    return charStats(character).maxLives;
+  }
+
   function renderHearts() {
+    const cap = maxLives(state.character);
     heartsEl.innerHTML = "";
-    for (let i = 0; i < MAX_LIVES; i += 1) {
+    for (let i = 0; i < cap; i += 1) {
       const span = document.createElement("span");
       span.textContent = "♥";
       span.className = i < state.lives ? "on" : "off";
@@ -273,7 +322,7 @@
     state.lane = 0;
     state.targetLane = 0;
     state.jumpT = 0;
-    state.lives = MAX_LIVES;
+    state.lives = maxLives(character);
     state.score = 0;
     state.distance = 0;
     state.speed = 0.22;
@@ -344,7 +393,7 @@
 
   function collect(item) {
     if (item.type === "vaccine") {
-      state.lives = Math.min(MAX_LIVES, state.lives + 1);
+      state.lives = Math.min(maxLives(state.character), state.lives + 1);
       state.recoverTimer = recoverDuration(state.character);
       setAnim("recover");
       sfx("recover");
@@ -385,6 +434,14 @@
     return clips[Math.min(frame, clips.length - 1)];
   }
 
+  function collides(item, forVirus) {
+    const stats = charStats(state.character);
+    if (item.z <= stats.zMin || item.z >= stats.zMax) return false;
+    const laneDist = Math.abs(item.lane - state.lane);
+    const threshold = forVirus ? stats.hitLane : COLLECT_LANE;
+    return laneDist < threshold;
+  }
+
   function update(dt) {
     state.distance += state.speed * 42 * dt;
     state.score += state.speed * 18 * dt;
@@ -406,14 +463,13 @@
     const jumping = state.jumpT > 0.12;
     state.objects.forEach((item) => {
       item.z += state.speed * dt;
-      if (item.z > 0.86 && item.z < 1.02 && Math.round(item.lane) === Math.round(state.targetLane)) {
-        if (item.type === "virus" && !jumping) {
-          hitVirus();
-          item.hit = true;
-        } else if (item.type !== "virus") {
-          collect(item);
-          item.hit = true;
-        }
+      if (!collides(item, item.type === "virus")) return;
+      if (item.type === "virus" && !jumping) {
+        hitVirus();
+        item.hit = true;
+      } else if (item.type !== "virus") {
+        collect(item);
+        item.hit = true;
       }
     });
     state.objects = state.objects.filter((item) => item.z < 1.08 && !item.hit);
@@ -498,51 +554,64 @@
     ctx.restore();
   }
 
+  function drawTintedItem(img, x, y, size, color) {
+    const s = Math.round(size);
+    const off = document.createElement("canvas");
+    off.width = s;
+    off.height = s;
+    const octx = off.getContext("2d");
+    octx.drawImage(img, 0, 0, s, s);
+    octx.globalCompositeOperation = "source-atop";
+    octx.fillStyle = color;
+    octx.fillRect(0, 0, s, s);
+    ctx.drawImage(off, x - s / 2, y - s / 2);
+  }
+
   function drawVirus(x, y, size) {
+    const img = itemSprites.virus;
+    if (img) {
+      ctx.save();
+      drawTintedItem(img, x, y, size * 0.92, ITEM_TINT.virus);
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = "#7cff6b";
+    ctx.fillStyle = ITEM_TINT.virus;
     ctx.beginPath();
     ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = "#d6ff4a";
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 6; i += 1) {
-      const a = (Math.PI * 2 * i) / 6;
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * size * 0.2, Math.sin(a) * size * 0.2);
-      ctx.lineTo(Math.cos(a) * size * 0.48, Math.sin(a) * size * 0.48);
-      ctx.stroke();
-    }
     ctx.restore();
   }
 
   function drawVaccine(x, y, size) {
+    const img = itemSprites.vaccine;
+    if (img) {
+      ctx.save();
+      drawTintedItem(img, x, y, size * 0.88, ITEM_TINT.vaccine);
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.translate(x, y);
-    ctx.fillStyle = "#5cf0ff";
+    ctx.fillStyle = ITEM_TINT.vaccine;
     ctx.fillRect(-size * 0.12, -size * 0.34, size * 0.24, size * 0.55);
-    ctx.fillStyle = "#7dffb1";
-    ctx.beginPath();
-    ctx.arc(0, size * 0.28, size * 0.18, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#fff";
-    ctx.fillRect(-size * 0.2, -size * 0.08, size * 0.4, size * 0.08);
     ctx.restore();
   }
 
   function drawChip(x, y, size) {
+    const img = itemSprites.chip;
+    if (img) {
+      ctx.save();
+      drawTintedItem(img, x, y, size * 0.86, ITEM_TINT.chip);
+      ctx.restore();
+      return;
+    }
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(Math.PI / 4);
-    ctx.fillStyle = "#ffe46a";
+    ctx.fillStyle = ITEM_TINT.chip;
     ctx.fillRect(-size * 0.22, -size * 0.22, size * 0.44, size * 0.44);
-    ctx.fillStyle = "#16203a";
-    ctx.font = `${Math.max(10, size * 0.28)}px sans-serif`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.rotate(-Math.PI / 4);
-    ctx.fillText("</>", 0, 0);
     ctx.restore();
   }
 
@@ -623,7 +692,9 @@
   });
 
   setCardsEnabled(false);
-  Promise.all([loadAllSprites(), processSelectPhotos()]).finally(() => setCardsEnabled(true));
+  Promise.all([loadAllSprites(), loadItemSprites(), processSelectPhotos()]).finally(() =>
+    setCardsEnabled(true)
+  );
 
   setTimeout(() => setCardsEnabled(true), 2500);
 })();

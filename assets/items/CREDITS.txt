@@ -1,0 +1,7 @@
+Item icons: Kenney.nl Board Game Icons (CC0 1.0)
+https://kenney.nl/assets/board-game-icons
+
+File mapping:
+- virus.png   : exploding (obstacle / virus)
+- vaccine.png : flask_full (recovery pickup)
+- chip.png    : puzzle (data chip pickup)

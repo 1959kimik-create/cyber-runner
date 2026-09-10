@@ -1,3 +1,9 @@
-desktop.ini
-Thumbs.db
 .DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.env
+.env.*
+!.env.example
+node_modules/
+.vercel
